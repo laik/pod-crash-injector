@@ -14,18 +14,18 @@ kind: ClusterRole
 metadata:
   name: pod-crash-injector
 rules:
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: pod-crash-injector
 subjects:
-- kind: ServiceAccount
-  name: pod-crash-injector
-  namespace: pod-crash-injector
+  - kind: ServiceAccount
+    name: pod-crash-injector
+    namespace: pod-crash-injector
 roleRef:
   kind: ClusterRole
   name: pod-crash-injector
@@ -48,23 +48,23 @@ spec:
     spec:
       serviceAccountName: pod-crash-injector
       containers:
-      - name: webhook
-        image: pod-crash-injector:latest
-        imagePullPolicy: IfNotPresent
-        args:
-        - --port=8443
-        - --tlsCertFile=/etc/webhook/certs/tls.crt
-        - --tlsKeyFile=/etc/webhook/certs/tls.key
-        ports:
-        - containerPort: 8443
-        volumeMounts:
-        - name: webhook-certs
-          mountPath: /etc/webhook/certs
-          readOnly: true
+        - name: webhook
+          image: pod-crash-injector:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - --port=8443
+            - --tlsCertFile=/etc/webhook/certs/tls.crt
+            - --tlsKeyFile=/etc/webhook/certs/tls.key
+          ports:
+            - containerPort: 8443
+          volumeMounts:
+            - name: webhook-certs
+              mountPath: /etc/webhook/certs
+              readOnly: true
       volumes:
-      - name: webhook-certs
-        secret:
-          secretName: webhook-certs
+        - name: webhook-certs
+          secret:
+            secretName: webhook-certs
 ---
 apiVersion: v1
 kind: Service
@@ -73,8 +73,8 @@ metadata:
   namespace: pod-crash-injector
 spec:
   ports:
-  - port: 443
-    targetPort: 8443
+    - port: 443
+      targetPort: 8443
   selector:
     app: pod-crash-injector
 ---
@@ -83,19 +83,19 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: pod-crash-injector
 webhooks:
-- name: pod-crash-injector.default.svc.cluster.local
-  clientConfig:
-    service:
-      name: pod-crash-injector
-      namespace: pod-crash-injector
-      path: "/mutate"
-      port: 443
-    caBundle: ${CA_BUNDLE}
-  rules:
-  - apiGroups: [""]
-    apiVersions: ["v1"]
-    resources: ["pods"]
-    operations: ["CREATE", "UPDATE"]
-  admissionReviewVersions: ["v1"]
-  sideEffects: None
-  timeoutSeconds: 5 
+  - name: pod-crash-injector.default.svc.cluster.local
+    clientConfig:
+      service:
+        name: pod-crash-injector
+        namespace: pod-crash-injector
+        path: "/mutate"
+        port: 443 
+      caBundle: ${CA_BUNDLE}
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE", "UPDATE"]
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    timeoutSeconds: 5

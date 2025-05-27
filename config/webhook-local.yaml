@@ -1,0 +1,18 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: pod-crash-injector-local
+webhooks:
+- name: pod-crash-injector.local.svc.cluster.local
+  clientConfig:
+    url: https://10.1.201.205:8443/mutate
+    caBundle: ${CA_BUNDLE}
+  rules:
+  - apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+    operations: ["CREATE", "UPDATE"]
+  admissionReviewVersions: ["v1"]
+  sideEffects: None
+  timeoutSeconds: 5
+  failurePolicy: Ignore 

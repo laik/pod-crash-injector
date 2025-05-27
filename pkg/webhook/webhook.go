@@ -30,6 +30,8 @@ func (whsvr *WebhookServer) Serve(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	klog.Infof("request body: %s", string(body))
+
 	// 验证请求
 	if contentType := r.Header.Get("Content-Type"); contentType != "application/json" {
 		klog.Errorf("contentType=%s, expect application/json", contentType)
@@ -156,11 +158,20 @@ func createPatch(pod *corev1.Pod) ([]byte, error) {
 	entrypoint := pod.Labels["entrypoint"]
 	if entrypoint == "" {
 		entrypoint = "/bin/bash"
+	} else {
+		// 处理简单的命令名称
+		switch entrypoint {
+		case "bash":
+			entrypoint = "/bin/bash"
+		case "sh":
+			entrypoint = "/bin/sh"
+		}
 	}
 
 	// 为所有容器创建新的命令
 	for i := range pod.Spec.Containers {
-		newCommand := []string{entrypoint}
+		// 使用 entrypoint 和 tail -f /dev/null 来保持容器运行
+		newCommand := []string{entrypoint, "-c", "tail -f /dev/null"}
 		patches = append(patches, map[string]interface{}{
 			"op":    "replace",
 			"path":  fmt.Sprintf("/spec/containers/%d/command", i),

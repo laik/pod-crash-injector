@@ -1,86 +1,109 @@
 # Pod Crash Injector
 
-这是一个 Kubernetes 准入 Webhook，用于通过标签控制修改 Pod 的 entrypoint。该工具支持所有 Kubernetes 版本，不依赖于 kubedebug 临时容器功能。
+这是一个 Kubernetes Mutating Webhook，用于修改 Pod 的 entrypoint，使其使用指定的 shell 并保持容器运行。
 
-## 功能特点
+## 功能特性
 
-- 通过标签控制 Pod 的 entrypoint 修改
-- 支持自定义 entrypoint 路径
-- 支持所有 Kubernetes 版本
-- 使用 TLS 加密通信
-- 简单易用的部署方式
+- 通过标签选择器识别需要修改的 Pod
+- 支持修改 Pod 的 entrypoint 为指定的 shell
+- 自动保持容器运行状态
+- 支持本地开发环境
 
-## 前置要求
+## 本地开发环境设置
 
-- Kubernetes 集群
-- kubectl 命令行工具
-- openssl（用于生成证书）
+### 前置条件
 
-## 快速开始
+- Go 1.16+
+- kubectl 配置正确
+- 本地 Kubernetes 集群（如 minikube、kind 等）
 
-1. 克隆仓库：
+### 1. 克隆代码
+
 ```bash
 git clone https://github.com/laik/pod-crash-injector.git
 cd pod-crash-injector
 ```
 
-2. 构建容器镜像：
-```bash
-docker build -t pod-crash-injector:latest .
-```
+### 2. 生成证书
 
-3. 生成证书并部署：
+项目提供了自动生成证书的脚本：
+
 ```bash
 cd config/cert
-chmod +x gen-cert.sh
 ./gen-cert.sh
 ```
 
-4. 验证部署：
+这个脚本会：
+- 生成 CA 证书和服务器证书
+- 创建 Kubernetes Secret
+- 更新 webhook 配置
+
+### 3. 启动 webhook 服务器
+
 ```bash
-kubectl get pods -n pod-crash-injector
+./scripts/setup-local.sh
+go run cmd/webhook/main.go --port=8443 --tlsCertFile=config/cert/server.crt --tlsKeyFile=config/cert/server.key
 ```
 
-## 使用方法
+### 4. 测试 webhook
 
-要修改 Pod 的 entrypoint，需要给 Pod 添加以下标签：
+创建一个测试 Pod：
 
-- `badpod`: 任意值，表示需要修改该 Pod
-- `entrypoint`: 要修改的 entrypoint 路径（可选，默认为 `/bin/bash`）
-
-示例：
-```yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: example-pod
-  namespace: default
-  labels:
-    badpod: "true"
-    entrypoint: "/bin/bash"
-spec:
-  containers:
-  - name: example
-    image: nginx
+```bash
+kubectl run test-pod --image=nginx --labels=badpod=true,entrypoint=bash
 ```
 
-## 工作原理
+检查 Pod 状态：
 
-1. Webhook 服务器监听 Pod 的创建和更新事件
-2. 当检测到 Pod 具有指定的标签时，修改其 entrypoint
-3. 修改后的 Pod 将使用新的 entrypoint 启动
+```bash
+kubectl get pod test-pod
+```
+
+进入容器：
+
+```bash
+kubectl exec -it test-pod -- /bin/bash
+```
 
 ## 配置说明
 
-Webhook 服务器支持以下命令行参数：
+### Webhook 配置
 
-- `--port`: Webhook 服务器端口（默认：8443）
-- `--tlsCertFile`: TLS 证书文件路径（默认：/etc/webhook/certs/tls.crt）
-- `--tlsKeyFile`: TLS 私钥文件路径（默认：/etc/webhook/certs/tls.key）
+webhook 配置位于 `config/webhook-local.yaml`，主要配置项：
+
+- `url`: webhook 服务器地址
+- `caBundle`: CA 证书
+- `rules`: 资源规则
+- `failurePolicy`: 失败策略
+
+### 标签说明
+
+Pod 需要添加以下标签才能被 webhook 处理：
+
+- `badpod=true`: 标识需要处理的 Pod
+- `entrypoint`: 指定要使用的 shell（支持 `bash`、`sh` 或完整路径）
+
+## 故障排除
+
+1. 证书问题
+   - 确保证书正确生成
+   - 检查 CA bundle 是否正确配置
+
+2. Webhook 连接问题
+   - 确认 webhook 服务器正在运行
+   - 检查网络连接和防火墙设置
+
+3. Pod 创建失败
+   - 检查 Pod 标签是否正确
+   - 查看 webhook 服务器日志
 
 ## 贡献指南
 
-欢迎提交 Issue 和 Pull Request！
+1. Fork 项目
+2. 创建特性分支
+3. 提交更改
+4. 推送到分支
+5. 创建 Pull Request
 
 ## 许可证
 
